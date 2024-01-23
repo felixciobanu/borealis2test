@@ -1,0 +1,244 @@
+Index: Borealis2tsx.Server/Controllers/ReadPortDataController.cs
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>using System;\r\nusing System.IO.Ports;\r\nusing System.Runtime.InteropServices.JavaScript;\r\nusing System.Threading;\r\nusing System.Threading.Tasks;\r\nusing Microsoft.AspNetCore.Mvc;\r\n\r\nnamespace Borealis2tsx.Server.Controllers\r\n{\r\n    [ApiController]\r\n    [Route(\"[controller]\")]\r\n    public class ReadPortDataController : ControllerBase\r\n    {\r\n        private readonly ILogger<ReadPortDataController> _logger;\r\n\r\n        public ReadPortDataController(ILogger<ReadPortDataController> logger)\r\n        {\r\n            _logger = logger;\r\n        }\r\n\r\n        [HttpGet(Name = \"GetReadPortData\")]\r\n        public ReadDataPort Get()\r\n        {\r\n            SerialPort port = new SerialPort(\"COM3\", 115200, Parity.None, 8, StopBits.One);\r\n            try\r\n            {\r\n                port.Open();\r\n            }\r\n            catch (Exception e)\r\n            {\r\n                Console.WriteLine(e);\r\n                return new ReadDataPort\r\n                {\r\n                    Dataline = [\"0.0\",\"0.0\",\"0.0\",\"0.0\",\"0.0\",\"0.0\",\"0.0\",\"0.0\",\"0.0\",\"0.0\",\"0.0\",\"0.0\",\"0.0\"]\r\n                };\r\n            }\r\n            // First dataLine is maybe read from the middle of the line\r\n            // dataLine is just read and \"thrown away\"\r\n            // dataLine2 is the data being sent to UI\r\n            string dataLine = port.ReadLine();\r\n            string datetime = DateTime.Now.ToString().Replace(\" \", \"T\");\r\n            string dataLine2 = datetime + \" \" + port.ReadLine();\r\n            port.Close();\r\n            return new ReadDataPort\r\n            {\r\n                Dataline = dataLine2.Split(\" \")\r\n            };\r\n            // Temp[graderC] Pressure[mbar] altitude[m] accX[mg] accY[mg] accZ[mg] gyroX[degrees/s] gyroY[degrees/s] gyroZ[degrees/s] magX[µT] magY[µT] magZ[µT]  \r\n        }\r\n    }\r\n}\r\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/Borealis2tsx.Server/Controllers/ReadPortDataController.cs b/Borealis2tsx.Server/Controllers/ReadPortDataController.cs
+--- a/Borealis2tsx.Server/Controllers/ReadPortDataController.cs	
++++ b/Borealis2tsx.Server/Controllers/ReadPortDataController.cs	
+@@ -29,21 +29,35 @@
+             catch (Exception e)
+             {
+                 Console.WriteLine(e);
+-                return new ReadDataPort
+-                {
+-                    Dataline = ["0.0","0.0","0.0","0.0","0.0","0.0","0.0","0.0","0.0","0.0","0.0","0.0","0.0"]
+-                };
++                // returns an empty ReadDataPort
++                return new ReadDataPort{};
+             }
+             // First dataLine is maybe read from the middle of the line
+             // dataLine is just read and "thrown away"
+             // dataLine2 is the data being sent to UI
+             string dataLine = port.ReadLine();
+-            string datetime = DateTime.Now.ToString().Replace(" ", "T");
+-            string dataLine2 = datetime + " " + port.ReadLine();
++            string dataLine2 = port.ReadLine();
+             port.Close();
++            // splittedDataArray has the splitted data from dataLine2 from the microcontroller
++            string[] splittedDataArray = dataLine2.Split(" ");
++            // return the a ReadDataPort with the values from microcontroller
++            // NOTE: we return only one line from the microcontroller at every request
+             return new ReadDataPort
+             {
+-                Dataline = dataLine2.Split(" ")
++                // date comes as default
++                Temperature = splittedDataArray[0],
++                Pressure = splittedDataArray[1],
++                Altitude = splittedDataArray[2],
++                AccX = splittedDataArray[3],
++                AccY = splittedDataArray[4],
++                AccZ = splittedDataArray[5],
++                GyroX = splittedDataArray[6],
++                GyroY = splittedDataArray[7],
++                GyroZ = splittedDataArray[8],
++                MagX = splittedDataArray[9],
++                MagY = splittedDataArray[10],
++                MagZ = splittedDataArray[11],
++                // TODO find a way to get TimeElapsed
+             };
+             // Temp[graderC] Pressure[mbar] altitude[m] accX[mg] accY[mg] accZ[mg] gyroX[degrees/s] gyroY[degrees/s] gyroZ[degrees/s] magX[µT] magY[µT] magZ[µT]  
+         }
+Index: Borealis2tsx.Server/ReadDataPort.cs
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>namespace Borealis2tsx.Server\r\n{\r\n    public class ReadDataPort\r\n    {\r\n        public string[] Dataline { get; set; }\r\n    }\r\n}\r\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/Borealis2tsx.Server/ReadDataPort.cs b/Borealis2tsx.Server/ReadDataPort.cs
+--- a/Borealis2tsx.Server/ReadDataPort.cs	
++++ b/Borealis2tsx.Server/ReadDataPort.cs	
+@@ -1,7 +1,25 @@
+ namespace Borealis2tsx.Server
+ {
++    /*TODO: this has to be changed once we know what kind of data we need
++     from Telemetry group. Until then be careful with how you use this class.
++     Use it cleverly in areas where it is not critical, nor time consuming
++     to change if we change the class
++     */
+     public class ReadDataPort
+     {
+-        public string[] Dataline { get; set; }
++        public string Datetime { get; set; } = DateTime.Now.ToString();
++        public string Temperature { get; set; } = "0.0";
++        public string Pressure { get; set; } = "0.0";
++        public string Altitude { get; set; } = "0.0";
++        public string AccX { get; set; } = "0.0";
++        public string AccY { get; set; } = "0.0";
++        public string AccZ { get; set; } = "0.0";
++        public string GyroX { get; set; } = "0.0";
++        public string GyroY { get; set; } = "0.0";
++        public string GyroZ { get; set; } = "0.0";
++        public string MagX { get; set; } = "0.0";
++        public string MagY { get; set; } = "0.0";
++        public string MagZ { get; set; } = "0.0";
++        public string Interval { get; set; } = "0s";
+     }
+ }
+Index: borealis2tsx.client/src/LiveData.tsx
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>import {useEffect, useState} from 'react';\r\n// import './App.css';\r\nimport dayjs from 'dayjs'\r\nimport relativeTime from 'dayjs/plugin/relativeTime';\r\n\r\ninterface ReadDataPort {\r\n    dataline: string[];\r\n}\r\n\r\ndayjs.extend(relativeTime);\r\n\r\n// component\r\nfunction LiveData() {\r\n    // Variable declarations should always be in the top of the component\r\n    const [Dataline, setDataline] = useState<ReadDataPort>();\r\n    const saveData: ReadDataPort[] = [];\r\n    let startingTime = new Date();\r\n    // UseEffect and other hooks should be after variables declaration but before functions\r\n    useEffect(() => {\r\n        const fetchData = async () => {\r\n            await ReadDataPortLine();\r\n        };\r\n\r\n        const intervalId = setInterval(() => {\r\n            fetchData()\r\n        }, 500);\r\n\r\n        // Cleanup the interval on component unmount\r\n        return () => {\r\n            clearInterval(intervalId);\r\n        };\r\n    }, []);\r\n\r\n    // functions should be after Hooks or outside the component\r\n    async function ReadDataPortLine() {\r\n        const response = await fetch('readportdata');\r\n        const data: ReadDataPort = await response.json();\r\n        const elapsed: number = ((new Date()).getTime() - (startingTime).getTime()) / 1000;\r\n        data.dataline.push(String(elapsed))\r\n        setDataline(data);\r\n        saveData.push(data)\r\n        console.log(saveData)\r\n    }\r\n\r\n    //this is a variable inside the returns of the appcomponent \r\n    const contents = Dataline === undefined\r\n        ? <p>Loading...\r\n        </p>\r\n        : <div>\r\n            <p>Started session: {Dataline.dataline[13].split(\".\")[0]}s ago</p>\r\n            <p>Date time: {dayjs().format(Dataline.dataline[0])}</p>\r\n            <div className={\"flex w-[750px] justify-center\"}>\r\n                <div id={\"LiveDataContent\"} className={'grid grid-cols-3 p-[10px] bg-blue-50 w-full'}>\r\n                    <div>\r\n                        <b>Temp[graderC]</b>\r\n                        <p>{Dataline.dataline[1]}</p>\r\n                    </div>\r\n                    <div>\r\n                        <b>Pressure[mbar]</b>\r\n                        <p>{Dataline.dataline[2]}</p>\r\n                    </div>\r\n                    <div>\r\n                        <b>altitude[m]</b>\r\n                        <p>{Dataline.dataline[3]}</p>\r\n                    </div>\r\n                    <div>\r\n                        <b>accX[mg]</b>\r\n                        <p>{Dataline.dataline[4]}</p>\r\n                    </div>\r\n                    <div>\r\n                        <b>accY[mg]</b>\r\n                        <p>{Dataline.dataline[5]}</p>\r\n                    </div>\r\n                    <div>\r\n                        <b>accZ[mg]</b>\r\n                        <p>{Dataline.dataline[6]}</p>\r\n                    </div>\r\n                    <div>\r\n                        <b>gyroX[degrees/s]</b>\r\n                        <p>{Dataline.dataline[7]}</p>\r\n                    </div>\r\n                    <div>\r\n                        <b>gyroY[degrees/s]</b>\r\n                        <p>{Dataline.dataline[8]}</p>\r\n                    </div>\r\n                    <div>\r\n                        <b>gyroZ[degrees/s]</b>\r\n                        <p>{Dataline.dataline[9]}</p>\r\n                    </div>\r\n                    <div>\r\n                        <b>magX[µT]</b>\r\n                        <p>{Dataline.dataline[10]}</p>\r\n                    </div>\r\n                    <div>\r\n                        <b>magY[µT]</b>\r\n                        <p>{Dataline.dataline[11]}</p>\r\n                    </div>\r\n                    <div>\r\n                        <b>magZ[µT]</b>\r\n                        <p>{Dataline.dataline[12]}</p>\r\n                    </div>\r\n                </div>\r\n            </div>\r\n        </div>;\r\n\r\n    // this what the component returns\r\n    return (\r\n        <div className={\"ml-5\"}>\r\n            <h1>UiS aerospace borealis 2.0</h1>\r\n            <h3 className={'text-teal-900'}>This component demonstrates getting data from the microcontroller.</h3>\r\n            <div>\r\n                {contents}\r\n            </div>\r\n        </div>\r\n    );\r\n\r\n}\r\n\r\nexport default LiveData;
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/borealis2tsx.client/src/LiveData.tsx b/borealis2tsx.client/src/LiveData.tsx
+--- a/borealis2tsx.client/src/LiveData.tsx	
++++ b/borealis2tsx.client/src/LiveData.tsx	
+@@ -4,7 +4,20 @@
+ import relativeTime from 'dayjs/plugin/relativeTime';
+ 
+ interface ReadDataPort {
+-    dataline: string[];
++    Datetime: string;
++    Temperature: string;
++    Pressure: string;
++    Altitude: string;
++    AccX: string;
++    AccY: string;
++    AccZ: string;
++    GyroX: string;
++    GyroY: string;
++    GyroZ: string;
++    MagX: string;
++    MagY: string;
++    MagZ: string;
++    interval: string;
+ }
+ 
+ dayjs.extend(relativeTime);
+@@ -12,7 +25,7 @@
+ // component
+ function LiveData() {
+     // Variable declarations should always be in the top of the component
+-    const [Dataline, setDataline] = useState<ReadDataPort>();
++    const [DataLine, setDataLine] = useState<ReadDataPort>();
+     const saveData: ReadDataPort[] = [];
+     let startingTime = new Date();
+     // UseEffect and other hooks should be after variables declaration but before functions
+@@ -34,70 +47,74 @@
+     // functions should be after Hooks or outside the component
+     async function ReadDataPortLine() {
+         const response = await fetch('readportdata');
++        console.log(response)
+         const data: ReadDataPort = await response.json();
+         const elapsed: number = ((new Date()).getTime() - (startingTime).getTime()) / 1000;
+-        data.dataline.push(String(elapsed))
+-        setDataline(data);
++        data.interval = String(elapsed);
++        setDataLine(data);
+         saveData.push(data)
+         console.log(saveData)
++        console.log(DataLine)
++        console.log(data)
++        console.log(setDataLine(data))
+     }
+ 
+     //this is a variable inside the returns of the appcomponent 
+-    const contents = Dataline === undefined
++    const contents = DataLine === undefined
+         ? <p>Loading...
+         </p>
+         : <div>
+-            <p>Started session: {Dataline.dataline[13].split(".")[0]}s ago</p>
+-            <p>Date time: {dayjs().format(Dataline.dataline[0])}</p>
++            <p>Started session: {DataLine.interval.split(".")[0]}s ago</p>
++            <p>Date time: {dayjs().format(DataLine.Datetime)}</p>
+             <div className={"flex w-[750px] justify-center"}>
+-                <div id={"LiveDataContent"} className={'grid grid-cols-3 p-[10px] bg-blue-50 w-full'}>
++                <div id={"LiveDataContent"} className={'grid grid-cols-3 p-[10px] bg-blue-50 w-full text-center'}>
+                     <div>
+-                        <b>Temp[graderC]</b>
+-                        <p>{Dataline.dataline[1]}</p>
++                        <b>Temperature[graderC]</b>
++                        <p>{DataLine.Temperature}</p>
+                     </div>
+                     <div>
+                         <b>Pressure[mbar]</b>
+-                        <p>{Dataline.dataline[2]}</p>
++                        <p>{DataLine.Pressure}</p>
+                     </div>
+                     <div>
+-                        <b>altitude[m]</b>
+-                        <p>{Dataline.dataline[3]}</p>
++                        <b>Altitude[m]</b>
++                        <p>{DataLine.Altitude}</p>
+                     </div>
+                     <div>
+-                        <b>accX[mg]</b>
+-                        <p>{Dataline.dataline[4]}</p>
++                        <b>AccX[mg]</b>
++                        <p>{DataLine.AccX}</p>
+                     </div>
+                     <div>
+-                        <b>accY[mg]</b>
+-                        <p>{Dataline.dataline[5]}</p>
++                        <b>AccY[mg]</b>
++                        <p>{DataLine.AccY}</p>
+                     </div>
+                     <div>
+-                        <b>accZ[mg]</b>
+-                        <p>{Dataline.dataline[6]}</p>
++                        <b>AccZ[mg]</b>
++                        <p>{DataLine.AccZ}</p>
+                     </div>
+                     <div>
+-                        <b>gyroX[degrees/s]</b>
+-                        <p>{Dataline.dataline[7]}</p>
++                        <b>GyroX[degrees/s]</b>
++                        <p>{DataLine.GyroX}</p>
+                     </div>
+                     <div>
+-                        <b>gyroY[degrees/s]</b>
+-                        <p>{Dataline.dataline[8]}</p>
++                        <b>GyroY[degrees/s]</b>
++                        <p>{DataLine.GyroY}</p>
+                     </div>
+                     <div>
+-                        <b>gyroZ[degrees/s]</b>
+-                        <p>{Dataline.dataline[9]}</p>
++                        <b>GyroZ[degrees/s]</b>
++                        <p>{DataLine.GyroZ}</p>
+                     </div>
+                     <div>
+-                        <b>magX[µT]</b>
+-                        <p>{Dataline.dataline[10]}</p>
++                        <b>MagX[µT]</b>
++                        <p>{DataLine.MagX}</p>
+                     </div>
+                     <div>
+-                        <b>magY[µT]</b>
+-                        <p>{Dataline.dataline[11]}</p>
++                        <b>MagY[µT]</b>
++                        <p>{DataLine.MagY}</p>
+                     </div>
+                     <div>
+-                        <b>magZ[µT]</b>
+-                        <p>{Dataline.dataline[12]}</p>
++                        <b>MagZ[µT]</b>
++                        <p>{DataLine.MagZ}</p>
+                     </div>
+                 </div>
+             </div>
+@@ -107,7 +124,7 @@
+     return (
+         <div className={"ml-5"}>
+             <h1>UiS aerospace borealis 2.0</h1>
+-            <h3 className={'text-teal-900'}>This component demonstrates getting data from the microcontroller.</h3>
++            <h3 className={'text-teal-900'}>This component is getting data from the microcontroller.</h3>
+             <div>
+                 {contents}
+             </div>
